@@ -1,0 +1,261 @@
+import { projectId, publicAnonKey } from './supabase/info';
+import { AppState, Project, Entry, Reminder, Widget, PendingNotification, UserProfile } from '../types';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc010b9b`;
+
+async function makeRequest(endpoint: string, options: RequestInit = {}) {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${publicAnonKey}`,
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchAppState(): Promise<AppState> {
+  try {
+    const data = await makeRequest('/data');
+    // Convert date strings back to Date objects
+    if (data.projects) {
+      data.projects = data.projects.map((project: any) => ({
+        ...project,
+        createdAt: new Date(project.createdAt)
+      }));
+    }
+    if (data.entries) {
+      data.entries = data.entries.map((entry: any) => ({
+        ...entry,
+        date: new Date(entry.date)
+      }));
+    }
+    if (data.reminders) {
+      data.reminders = data.reminders.map((reminder: any) => ({
+        ...reminder,
+        startDate: new Date(reminder.startDate),
+        endDate: reminder.endDate ? new Date(reminder.endDate) : undefined,
+        nextDue: new Date(reminder.nextDue),
+        createdAt: new Date(reminder.createdAt)
+      }));
+    }
+    if (data.pendingNotifications) {
+      data.pendingNotifications = data.pendingNotifications.map((notif: any) => ({
+        ...notif,
+        scheduledFor: new Date(notif.scheduledFor)
+      }));
+    }
+    if (data.userProfile && data.userProfile.createdAt) {
+      data.userProfile.createdAt = new Date(data.userProfile.createdAt);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error fetching app state:', error);
+    throw error;
+  }
+}
+
+export async function saveAppState(state: AppState): Promise<void> {
+  try {
+    await makeRequest('/data', {
+      method: 'POST',
+      body: JSON.stringify(state),
+    });
+  } catch (error) {
+    console.error('Error saving app state:', error);
+    throw error;
+  }
+}
+
+export async function addProject(project: Project): Promise<void> {
+  try {
+    await makeRequest('/projects', {
+      method: 'POST',
+      body: JSON.stringify(project),
+    });
+  } catch (error) {
+    console.error('Error adding project:', error);
+    throw error;
+  }
+}
+
+export async function updateProject(id: string, updates: Partial<Project>): Promise<void> {
+  try {
+    await makeRequest(`/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    console.error('Error updating project:', error);
+    throw error;
+  }
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  try {
+    await makeRequest(`/projects/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    throw error;
+  }
+}
+
+export async function addEntry(entry: Entry): Promise<void> {
+  try {
+    await makeRequest('/entries', {
+      method: 'POST',
+      body: JSON.stringify(entry),
+    });
+  } catch (error) {
+    console.error('Error adding entry:', error);
+    throw error;
+  }
+}
+
+export async function deleteEntry(id: string): Promise<void> {
+  try {
+    await makeRequest(`/entries/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('Error deleting entry:', error);
+    throw error;
+  }
+}
+
+export async function addReminder(reminder: Reminder): Promise<void> {
+  try {
+    await makeRequest('/reminders', {
+      method: 'POST',
+      body: JSON.stringify(reminder),
+    });
+  } catch (error) {
+    console.error('Error adding reminder:', error);
+    throw error;
+  }
+}
+
+export async function updateReminder(id: string, updates: Partial<Reminder>): Promise<void> {
+  try {
+    await makeRequest(`/reminders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    console.error('Error updating reminder:', error);
+    throw error;
+  }
+}
+
+export async function deleteReminder(id: string): Promise<void> {
+  try {
+    await makeRequest(`/reminders/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('Error deleting reminder:', error);
+    throw error;
+  }
+}
+
+export async function addWidget(widget: Widget): Promise<void> {
+  try {
+    await makeRequest('/widgets', {
+      method: 'POST',
+      body: JSON.stringify(widget),
+    });
+  } catch (error) {
+    console.error('Error adding widget:', error);
+    throw error;
+  }
+}
+
+export async function updateWidget(id: string, updates: Partial<Widget>): Promise<void> {
+  try {
+    await makeRequest(`/widgets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    console.error('Error updating widget:', error);
+    throw error;
+  }
+}
+
+export async function deleteWidget(id: string): Promise<void> {
+  try {
+    await makeRequest(`/widgets/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('Error deleting widget:', error);
+    throw error;
+  }
+}
+
+export async function addNotification(notification: PendingNotification): Promise<void> {
+  try {
+    await makeRequest('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(notification),
+    });
+  } catch (error) {
+    console.error('Error adding notification:', error);
+    throw error;
+  }
+}
+
+export async function updateNotification(id: string, updates: Partial<PendingNotification>): Promise<void> {
+  try {
+    await makeRequest(`/notifications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  } catch (error) {
+    console.error('Error updating notification:', error);
+    throw error;
+  }
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  try {
+    await makeRequest(`/notifications/${id}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+}
+
+export async function updateUserProfile(updates: { username?: string; userProfile?: UserProfile }): Promise<UserProfile | undefined> {
+  try {
+    const response = await makeRequest('/user-profile', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+    return response.userProfile;
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
+
+export async function getUserCount(): Promise<number> {
+  try {
+    const response = await makeRequest('/user-count');
+    return response.count;
+  } catch (error) {
+    console.error('Error getting user count:', error);
+    throw error;
+  }
+}
