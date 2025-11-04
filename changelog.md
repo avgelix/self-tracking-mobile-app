@@ -130,3 +130,14 @@ Each entry follows this format:
   - src/utils/supabase/info.tsx
   - src/utils/unitHelpers.ts
   - vite.config.ts
+
+- Date: 2025-11-04 18:50:53 +0000
+- Level: micro
+- Type: other
+- Description: Add install-hooks.sh script to set up git hooks  This script configures the repository to use a custom hooks path (.githooks) and ensures that all hooks are executable. It provides instructions for committing the hooks directory for other users.
+- Files changed:
+  - .githooks/post-commit
+  - .gitignore
+  - changelog.md
+  - package-lock.json
+  - scripts/install-hooks.sh
