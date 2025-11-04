@@ -72,22 +72,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   useEffect(() => {
     if (currentStep === 4) {
       const timer = setTimeout(async () => {
-        const userProfile: UserProfile = {
-          name: formData.name,
-          surname: formData.surname || undefined,
-          email: formData.email,
-          completedOnboarding: true,
-          createdAt: new Date()
-        };
-
-        await setUserProfile(userProfile);
-        completeOnboarding();
-        onComplete();
+        await handleComplete();
       }, 3000);
 
       return () => clearTimeout(timer);
     }
-  }, [currentStep, formData.name, formData.surname, formData.email, setUserProfile, completeOnboarding, onComplete]);
+  }, [currentStep]);
 
   const features = [];
 
@@ -127,17 +117,44 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   const handleComplete = async () => {
-    const userProfile: UserProfile = {
-      name: formData.name,
-      surname: formData.surname || undefined,
-      email: formData.email,
-      completedOnboarding: true,
-      createdAt: new Date()
-    };
+    try {
+      // Generate a password from email (simplified - in production would be more secure)
+      const password = `${formData.email.split('@')[0]}${Date.now()}`;
+      
+      // Sign up the user
+      const signupResult = await api.signUp(
+        formData.email,
+        password,
+        formData.name,
+        formData.surname
+      );
+      
+      if (!signupResult.success) {
+        console.error('Signup failed:', signupResult.error);
+        // If account already exists, try to sign in
+        // This handles the case where onboarding was interrupted
+        return;
+      }
+      
+      // Wait a moment for token to be fully set
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Create user profile with the user number from signup
+      const userProfile: UserProfile = {
+        name: formData.name,
+        surname: formData.surname || undefined,
+        email: formData.email,
+        completedOnboarding: true,
+        createdAt: new Date(),
+        userNumber: signupResult.userNumber
+      };
 
-    await setUserProfile(userProfile);
-    completeOnboarding();
-    onComplete();
+      await setUserProfile(userProfile);
+      completeOnboarding();
+      onComplete();
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+    }
   };
 
   const renderUserInfoStep = () => (
@@ -821,7 +838,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 flex items-center justify-center px-4 pb-[112px] pt-[24px] pr-[14px] pl-[14px]">
+        <div className="flex-1 flex items-center justify-center px-4 pb-32 pt-6">
           <div className="w-full max-w-md">
             <AnimatePresence mode="wait">
               {currentStep === 0 && renderUserInfoStep()}
@@ -835,30 +852,42 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
         {/* Bottom Navigation - Hide on completion page (step 4) */}
         {currentStep !== 4 && (
-          <div className="pb-8 px-4">
-            <div className="fixed bottom-8 left-0 right-0 max-w-md mx-auto flex justify-between items-center px-4">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                disabled={currentStep === 0}
-                className="flex items-center gap-2 text-white hover:bg-white/20 hover:text-white"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </Button>
+          <div className="fixed bottom-0 left-0 right-0 pointer-events-none">
+            {/* Gradient fade to ensure visibility */}
+            <div 
+              className="h-12 pointer-events-none"
+              style={{
+                background: `linear-gradient(to bottom, transparent, ${getBackgroundColor()})`
+              }}
+            />
+            <div 
+              className="py-6 px-4 pointer-events-auto"
+              style={{ backgroundColor: getBackgroundColor() }}
+            >
+              <div className="max-w-md mx-auto flex justify-between items-center">
+                <Button
+                  variant="ghost"
+                  onClick={handleBack}
+                  disabled={currentStep === 0}
+                  className="flex items-center gap-2 text-white hover:bg-white/20 hover:text-white disabled:opacity-30"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </Button>
 
-              <div className="text-sm text-white/80">
-                {currentStep + 1} of 5
+                <div className="text-sm text-white/90 font-medium">
+                  {currentStep + 1} of 5
+                </div>
+
+                <Button
+                  onClick={handleNext}
+                  className="flex items-center gap-2 bg-white text-gray-900 hover:bg-white/90 disabled:opacity-50"
+                  disabled={currentStep === 0 && (!formData.name.trim() || !formData.email.trim())}
+                >
+                  {currentStep === 3 ? 'Get Started' : 'Next'}
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
-
-              <Button
-                onClick={handleNext}
-                className="flex items-center gap-2 bg-white text-gray-900 hover:bg-white/90"
-                disabled={currentStep === 0 && (!formData.name.trim() || !formData.email.trim())}
-              >
-                {currentStep === 3 ? 'Get Started' : 'Next'}
-                <ArrowRight className="w-4 h-4" />
-              </Button>
             </div>
           </div>
         )}

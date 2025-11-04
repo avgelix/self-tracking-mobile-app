@@ -180,6 +180,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Initialize auth first
+        const isAuthenticated = await api.initializeAuth();
+        
+        if (!isAuthenticated) {
+          // No auth session, user needs to go through onboarding
+          setIsLoading(false);
+          return;
+        }
+        
         // Try to load from Supabase
         const data = await api.fetchAppState();
         
@@ -306,11 +315,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             };
             dispatch({ type: 'LOAD_DATA', payload: completeData });
             
-            // Try to sync to Supabase
-            try {
-              await api.saveAppState(completeData);
-            } catch (syncError) {
-              console.error('Failed to sync localStorage data to Supabase:', syncError);
+            // Try to sync to Supabase only if authenticated
+            const accessToken = api.getAccessToken();
+            if (accessToken && completeData.userProfile?.completedOnboarding) {
+              try {
+                await api.saveAppState(completeData);
+              } catch (syncError) {
+                console.error('Failed to sync localStorage data to Supabase:', syncError);
+              }
             }
           } catch (error) {
             console.error('Failed to load data from localStorage:', error);
@@ -336,8 +348,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Save to localStorage immediately
         localStorage.setItem('trackingAppData', JSON.stringify(state));
         
-        // Save to Supabase
-        await api.saveAppState(state);
+        // Only save to Supabase if user is authenticated
+        const accessToken = api.getAccessToken();
+        if (accessToken && state.userProfile?.completedOnboarding) {
+          await api.saveAppState(state);
+        }
       } catch (error) {
         console.error('Failed to sync data to Supabase:', error);
       } finally {
@@ -580,15 +595,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Update locally first
     dispatch({ type: 'SET_USER_PROFILE', payload: profile });
     
-    // Then sync to server to get user number if needed
-    try {
-      const updatedProfile = await api.updateUserProfile({ userProfile: profile });
-      if (updatedProfile && updatedProfile.userNumber !== profile.userNumber) {
-        // Update with the user number from server
-        dispatch({ type: 'SET_USER_PROFILE', payload: updatedProfile });
+    // Then sync to server only if authenticated
+    const accessToken = api.getAccessToken();
+    if (accessToken) {
+      try {
+        const updatedProfile = await api.updateUserProfile({ userProfile: profile });
+        if (updatedProfile && updatedProfile.userNumber !== profile.userNumber) {
+          // Update with the user number from server
+          dispatch({ type: 'SET_USER_PROFILE', payload: updatedProfile });
+        }
+      } catch (error) {
+        console.error('Failed to sync user profile to server:', error);
       }
-    } catch (error) {
-      console.error('Failed to sync user profile to server:', error);
     }
   };
 
