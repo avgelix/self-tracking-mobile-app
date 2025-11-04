@@ -1,0 +1,132 @@
+# Changelog
+
+This file is automatically appended to by a git hook when commits are made (see `.githooks/post-commit`).
+
+Each entry follows this format:
+- Date: YYYY-MM-DD HH:MM:SS +/-TZ
+- Level: micro | medium | macro
+- Type: <change type>
+- Description: short (1-3 lines)
+- Files changed:
+  - path/to/file1
+  - path/to/file2
+
+---
+
+# Example entry (auto-generated)
+- Date: 2025-11-04 00:00:00 +0000
+- Level: micro
+- Type: other
+- Description: Initial changelog file created and hook installed.
+- Files changed:
+  - changelog.md
+  - .githooks/post-commit
+  - scripts/install-hooks.sh
+
+- Date: 2025-11-03 01:56:12 +0000
+- Level: micro
+- Type: other
+- Description: Add files from Figma Make
+- Files changed:
+  - .npmrc
+  - README.md
+  - index.html
+  - package.json
+  - src/App.tsx
+  - src/Attributions.md
+  - src/SUPABASE_INTEGRATION.md
+  - src/components/AddEntry.tsx
+  - src/components/Categories.tsx
+  - src/components/CategoryDetail.tsx
+  - src/components/CategoryEditor.tsx
+  - src/components/CategoryReminderManager.tsx
+  - src/components/CategoryWidgetManager.tsx
+  - src/components/Charts.tsx
+  - src/components/Dashboard.tsx
+  - src/components/DataCollectionModeExample.tsx
+  - src/components/DataManagement.tsx
+  - src/components/DynamicForm.tsx
+  - src/components/FieldBuilder.tsx
+  - src/components/FieldWidget.tsx
+  - src/components/FloatingActionButton.tsx
+  - src/components/Header.tsx
+  - src/components/HomeScreenWidgets.tsx
+  - src/components/Navigation.tsx
+  - src/components/NotificationManager.tsx
+  - src/components/Onboarding.tsx
+  - src/components/PathRecorder.tsx
+  - src/components/ProjectDetail.tsx
+  - src/components/ProjectEditor.tsx
+  - src/components/ProjectReminderManager.tsx
+  - src/components/ProjectWidgetManager.tsx
+  - src/components/Projects.tsx
+  - src/components/QuickStartGuide.tsx
+  - src/components/ReminderManager.tsx
+  - src/components/Settings.tsx
+  - src/components/SyncIndicator.tsx
+  - src/components/TallyCounter.tsx
+  - src/components/WidgetManager.tsx
+  - src/components/figma/ImageWithFallback.tsx
+  - src/components/ui/accordion.tsx
+  - src/components/ui/alert-dialog.tsx
+  - src/components/ui/alert.tsx
+  - src/components/ui/aspect-ratio.tsx
+  - src/components/ui/avatar.tsx
+  - src/components/ui/badge.tsx
+  - src/components/ui/breadcrumb.tsx
+  - src/components/ui/button.tsx
+  - src/components/ui/calendar.tsx
+  - src/components/ui/card.tsx
+  - src/components/ui/carousel.tsx
+  - src/components/ui/chart.tsx
+  - src/components/ui/checkbox.tsx
+  - src/components/ui/collapsible.tsx
+  - src/components/ui/command.tsx
+  - src/components/ui/context-menu.tsx
+  - src/components/ui/dialog.tsx
+  - src/components/ui/drawer.tsx
+  - src/components/ui/dropdown-menu.tsx
+  - src/components/ui/form.tsx
+  - src/components/ui/hover-card.tsx
+  - src/components/ui/input-otp.tsx
+  - src/components/ui/input.tsx
+  - src/components/ui/label.tsx
+  - src/components/ui/menubar.tsx
+  - src/components/ui/navigation-menu.tsx
+  - src/components/ui/pagination.tsx
+  - src/components/ui/popover.tsx
+  - src/components/ui/progress.tsx
+  - src/components/ui/radio-group.tsx
+  - src/components/ui/resizable.tsx
+  - src/components/ui/scroll-area.tsx
+  - src/components/ui/select.tsx
+  - src/components/ui/separator.tsx
+  - src/components/ui/sheet.tsx
+  - src/components/ui/sidebar.tsx
+  - src/components/ui/skeleton.tsx
+  - src/components/ui/slider.tsx
+  - src/components/ui/sonner.tsx
+  - src/components/ui/switch.tsx
+  - src/components/ui/table.tsx
+  - src/components/ui/tabs.tsx
+  - src/components/ui/textarea.tsx
+  - src/components/ui/toggle-group.tsx
+  - src/components/ui/toggle.tsx
+  - src/components/ui/tooltip.tsx
+  - src/components/ui/use-mobile.ts
+  - src/components/ui/utils.ts
+  - src/components/widgets/QuickEntryWidget.tsx
+  - src/contexts/AppContext.tsx
+  - src/guidelines/Guidelines.md
+  - src/index.css
+  - src/main.tsx
+  - src/styles/globals.css
+  - src/supabase/functions/server/index.tsx
+  - src/supabase/functions/server/kv_store.tsx
+  - src/types/index.ts
+  - src/utils/api.ts
+  - src/utils/dateHelpers.ts
+  - src/utils/iconLibrary.ts
+  - src/utils/supabase/info.tsx
+  - src/utils/unitHelpers.ts
+  - vite.config.ts

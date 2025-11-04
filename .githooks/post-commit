@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -e
+
+# post-commit hook to append a summary entry to changelog.md for the latest commit
+# It parses the commit message for optional fields (Level:, Type:, Description:)
+# If not present it falls back to reasonable defaults.
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+commit_sha=$(git rev-parse HEAD)
+date=$(git show -s --format=%ci "$commit_sha")
+msg=$(git show -s --format=%B "$commit_sha")
+
+# Parse optional fields from the commit message
+level=$(echo "$msg" | grep -i '^Level:' | head -n1 | sed -E 's/^[Ll]evel:\s*//' || true)
+type=$(echo "$msg" | grep -i '^Type:' | head -n1 | sed -E 's/^[Tt]ype:\s*//' || true)
+desc=$(echo "$msg" | awk '/^[Dd]escription:/{flag=1; sub(/^[Dd]escription:[ \t]*/,"",$0); print; next} flag && NF{print; next} flag && !NF{exit}' || true)
+
+# Fallback: detect [micro|medium|macro] in first line
+if [ -z "$level" ]; then
+  level=$(echo "$msg" | head -n1 | sed -n 's/.*\[\(micro\|medium\|macro\)\].*/\1/p')
+fi
+
+# Another fallback: default level
+if [ -z "$level" ]; then
+  level="micro"
+fi
+
+# Fallback for type: try conventional commit style "type: description" (e.g., feat: add)
+if [ -z "$type" ]; then
+  type=$(echo "$msg" | head -n1 | sed -n 's/^\([a-zA-Z_-][a-zA-Z0-9_-]*\):.*$/\1/p' || true)
+fi
+if [ -z "$type" ]; then
+  type="other"
+fi
+
+# Fallback for description: first 1-3 lines of commit message (excluding Level/Type/Description lines)
+if [ -z "$desc" ]; then
+  desc=$(echo "$msg" | awk 'BEGIN{c=0} /^[Ll]evel:|^[Tt]ype:|^[Dd]escription:/ {next} {if(c<3){print; c++}}' | sed ':a;N;$!ba;s/\n/ /g')
+fi
+
+# Files changed in this commit
+files=$(git show --name-only --pretty=format: "$commit_sha" | sed '/^$/d' | sed 's/^/  - /')
+
+changelog_file="$repo_root/changelog.md"
+
+# Ensure changelog exists
+if [ ! -f "$changelog_file" ]; then
+  echo "# Changelog" > "$changelog_file"
+  echo "" >> "$changelog_file"
+fi
+
+{
+  echo ""
+  echo "- Date: $date"
+  echo "- Level: $level"
+  echo "- Type: $type"
+  echo "- Description: $desc"
+  echo "- Files changed:"
+  if [ -n "$files" ]; then
+    echo "$files"
+  else
+    echo "  - (no files detected)"
+  fi
+} >> "$changelog_file"
+
+exit 0
