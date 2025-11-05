@@ -28,10 +28,15 @@ import {
   RefreshCw, 
   FileText, 
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  Bug,
+  CheckCircle,
+  XCircle,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { format } from '../utils/dateHelpers';
+import * as api from '../utils/api';
 
 export function DataManagement() {
   const { state, dispatch } = useApp();
@@ -343,8 +348,145 @@ export function DataManagement() {
     }
   };
 
+  // Debug: Check authentication status
+  const checkAuthStatus = async () => {
+    const hasToken = !!localStorage.getItem('whatever_access_token');
+    const hasCredentials = !!localStorage.getItem('whatever_credentials');
+    const hasAppData = !!localStorage.getItem('trackingAppData');
+    
+    let debugInfo = `Auth Debug Info:\n`;
+    debugInfo += `- Access Token Stored: ${hasToken ? '✓ Yes' : '✗ No'}\n`;
+    debugInfo += `- Credentials Stored: ${hasCredentials ? '✓ Yes' : '✗ No'}\n`;
+    debugInfo += `- App Data in localStorage: ${hasAppData ? '✓ Yes' : '✗ No'}\n`;
+    debugInfo += `- User Profile Loaded: ${state.userProfile ? '✓ Yes' : '✗ No'}\n`;
+    debugInfo += `- Onboarding Completed: ${state.userProfile?.completedOnboarding ? '✓ Yes' : '✗ No'}\n`;
+    debugInfo += `- User Email: ${state.userProfile?.email || 'Not set'}\n`;
+    debugInfo += `- User Number: ${state.userProfile?.userNumber || 'Not set'}\n`;
+    
+    // Try to get session info
+    try {
+      const user = await api.getCurrentUser();
+      debugInfo += `- Supabase User: ${user ? '✓ ' + user.email : '✗ No active session'}\n`;
+    } catch (error) {
+      debugInfo += `- Supabase User: Error checking session\n`;
+    }
+    
+    console.log(debugInfo);
+    alert(debugInfo);
+  };
+  
+  const copyDebugInfo = async () => {
+    let debugInfo = `Whatever App - Debug Info\n`;
+    debugInfo += `Generated: ${new Date().toISOString()}\n\n`;
+    debugInfo += `AUTHENTICATION:\n`;
+    debugInfo += `- Access Token: ${localStorage.getItem('whatever_access_token') ? 'Present' : 'Missing'}\n`;
+    debugInfo += `- Credentials: ${localStorage.getItem('whatever_credentials') ? 'Present' : 'Missing'}\n`;
+    debugInfo += `- User Profile: ${state.userProfile ? 'Loaded' : 'Not loaded'}\n`;
+    debugInfo += `- Email: ${state.userProfile?.email || 'N/A'}\n`;
+    debugInfo += `- User #: ${state.userProfile?.userNumber || 'N/A'}\n`;
+    debugInfo += `- Onboarding: ${state.userProfile?.completedOnboarding ? 'Complete' : 'Incomplete'}\n\n`;
+    debugInfo += `DATA:\n`;
+    debugInfo += `- Projects: ${state.projects.length}\n`;
+    debugInfo += `- Entries: ${state.entries.length}\n`;
+    debugInfo += `- Reminders: ${state.reminders.length}\n`;
+    debugInfo += `- Widgets: ${state.widgets.length}\n`;
+    
+    try {
+      await navigator.clipboard.writeText(debugInfo);
+      toast.success('Debug info copied to clipboard!');
+    } catch (error) {
+      console.log(debugInfo);
+      toast.error('Could not copy to clipboard - check console');
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Authentication Debug Section */}
+      <Card className="bg-purple-50/60 backdrop-blur-sm border-purple-200/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-700">
+            <Bug className="w-5 h-5" />
+            Authentication Debug
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span>Access Token:</span>
+              {localStorage.getItem('whatever_access_token') ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" /> Stored
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-600">
+                  <XCircle className="w-4 h-4" /> Missing
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Auto-Login Credentials:</span>
+              {localStorage.getItem('whatever_credentials') ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" /> Stored
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-600">
+                  <XCircle className="w-4 h-4" /> Missing
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>User Profile:</span>
+              {state.userProfile ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" /> {state.userProfile.email}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-red-600">
+                  <XCircle className="w-4 h-4" /> Not loaded
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Onboarding Status:</span>
+              {state.userProfile?.completedOnboarding ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="w-4 h-4" /> Complete
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-orange-600">
+                  <XCircle className="w-4 h-4" /> Incomplete
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1 gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
+              onClick={checkAuthStatus}
+            >
+              <Bug className="w-4 h-4" />
+              Check Status
+            </Button>
+            <Button 
+              variant="outline" 
+              className="flex-1 gap-2 border-purple-300 text-purple-700 hover:bg-purple-100"
+              onClick={copyDebugInfo}
+            >
+              <Copy className="w-4 h-4" />
+              Copy Debug Info
+            </Button>
+          </div>
+          
+          <p className="text-xs text-purple-700">
+            Use this section to diagnose login persistence issues. Check the browser console for detailed logs.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Export Data Section */}
       <Card className="bg-white/60 backdrop-blur-sm border-white/30">
         <CardHeader>

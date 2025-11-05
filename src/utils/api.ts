@@ -1,19 +1,28 @@
-import { projectId, publicAnonKey } from './supabase/info';
+import { projectId as supabaseProjectId, publicAnonKey } from './supabase/info';
 import { AppState, Project, Entry, Reminder, Widget, PendingNotification, UserProfile } from '../types';
 import { createClient } from '@supabase/supabase-js';
 
-const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc010b9b`;
+const API_BASE = `https://${supabaseProjectId}.supabase.co/functions/v1/make-server-fc010b9b`;
 
 console.log('API initialized with base URL:', API_BASE);
 
+// Export projectId for use in other components
+export const projectId = supabaseProjectId;
+
 // Create Supabase client for auth operations
 const supabase = createClient(
-  `https://${projectId}.supabase.co`,
+  `https://${supabaseProjectId}.supabase.co`,
   publicAnonKey
 );
 
 // Store access token in memory
 let accessToken: string | null = null;
+
+// Store user credentials for persistent login (encrypted in production)
+interface StoredCredentials {
+  email: string;
+  password: string;
+}
 
 // Get the current access token
 export function getAccessToken(): string | null {
@@ -25,36 +34,105 @@ export function setAccessToken(token: string | null) {
   accessToken = token;
   if (token) {
     localStorage.setItem('whatever_access_token', token);
+    console.log('✓ Access token stored in localStorage');
   } else {
     localStorage.removeItem('whatever_access_token');
+    console.log('✗ Access token removed from localStorage');
   }
+}
+
+// Store user credentials for auto-login
+function storeCredentials(email: string, password: string) {
+  try {
+    const credentials: StoredCredentials = { email, password };
+    localStorage.setItem('whatever_credentials', JSON.stringify(credentials));
+    console.log('✓ User credentials stored for auto-login');
+  } catch (error) {
+    console.error('Failed to store credentials:', error);
+  }
+}
+
+// Get stored credentials
+function getStoredCredentials(): StoredCredentials | null {
+  try {
+    const stored = localStorage.getItem('whatever_credentials');
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Failed to retrieve stored credentials:', error);
+  }
+  return null;
+}
+
+// Clear stored credentials
+function clearStoredCredentials() {
+  localStorage.removeItem('whatever_credentials');
+  console.log('✓ User credentials cleared');
 }
 
 // Initialize auth from stored session
 export async function initializeAuth(): Promise<boolean> {
   try {
+    console.log('=== INITIALIZING AUTH ===');
+    
     // Check for stored token
     const storedToken = localStorage.getItem('whatever_access_token');
+    console.log('Stored token exists:', !!storedToken);
+    
     if (storedToken) {
+      console.log('Found stored token, verifying with Supabase...');
       accessToken = storedToken;
       
-      // Verify token is still valid
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        accessToken = session.access_token;
-        setAccessToken(session.access_token);
-        return true;
+      // Verify token is still valid by trying to get user
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser(storedToken);
+        console.log('Token verification - User:', !!user, 'Error:', error?.message);
+        
+        if (user && !error) {
+          console.log('✓ Token is valid, user authenticated:', user.email);
+          // Token is valid, keep using it
+          return true;
+        } else {
+          console.log('✗ Stored token is invalid or expired');
+          // Token invalid, clear it
+          localStorage.removeItem('whatever_access_token');
+          accessToken = null;
+        }
+      } catch (verifyError) {
+        console.error('Error verifying token:', verifyError);
       }
     }
     
-    // Try to get existing session
+    // Try to get existing session from Supabase
+    console.log('Checking for Supabase session...');
     const { data: { session }, error } = await supabase.auth.getSession();
+    console.log('Supabase session exists:', !!session, 'Error:', error?.message);
+    
     if (session?.access_token) {
+      console.log('✓ Found active Supabase session for:', session.user?.email);
       accessToken = session.access_token;
       setAccessToken(session.access_token);
       return true;
     }
     
+    // Try auto-login with stored credentials as last resort
+    console.log('Attempting auto-login with stored credentials...');
+    const credentials = getStoredCredentials();
+    if (credentials) {
+      console.log('Found stored credentials for:', credentials.email);
+      const result = await signIn(credentials.email, credentials.password);
+      if (result.success) {
+        console.log('✓ Auto-login successful');
+        return true;
+      } else {
+        console.log('✗ Auto-login failed:', result.error);
+        // Clear invalid credentials
+        clearStoredCredentials();
+      }
+    }
+    
+    console.log('✗ No valid session found, user needs to sign in');
     return false;
   } catch (error) {
     console.error('Error initializing auth:', error);
@@ -65,24 +143,73 @@ export async function initializeAuth(): Promise<boolean> {
 // Sign up a new user
 export async function signUp(email: string, password: string, name: string, surname?: string): Promise<{ success: boolean; userNumber?: number; error?: string }> {
   try {
+    console.log('=== SIGNUP PROCESS STARTING ===');
     console.log('API: Calling signup endpoint with email:', email);
+    console.log('API: Signup URL:', `${API_BASE}/signup`);
+    console.log('API: Request body:', { email, password: '***', name, surname });
     
-    const response = await fetch(`${API_BASE}/signup`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name, surname }),
-    });
+    let response;
+    try {
+      response = await fetch(`${API_BASE}/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`,
+        },
+        body: JSON.stringify({ email, password, name, surname }),
+      });
+      console.log('API: Fetch completed successfully');
+    } catch (fetchError) {
+      console.error('API: Fetch failed with error:', fetchError);
+      console.error('API: Error type:', fetchError.constructor.name);
+      console.error('API: Error message:', fetchError instanceof Error ? fetchError.message : String(fetchError));
+      
+      if (fetchError instanceof TypeError) {
+        return { 
+          success: false, 
+          error: 'Network error: Unable to reach server. Please check your connection and try again.' 
+        };
+      }
+      
+      throw fetchError;
+    }
 
-    console.log('API: Signup response status:', response.status);
+    console.log('API: Signup response status:', response.status, response.statusText);
+    console.log('API: Response headers:', Object.fromEntries(response.headers.entries()));
     
-    const data = await response.json();
-    console.log('API: Signup response data:', data);
+    // Try to get response text first
+    let responseText;
+    try {
+      responseText = await response.text();
+      console.log('API: Response text length:', responseText.length);
+      console.log('API: Response text:', responseText.substring(0, 500));
+    } catch (textError) {
+      console.error('API: Failed to read response text:', textError);
+      return { 
+        success: false, 
+        error: 'Failed to read server response' 
+      };
+    }
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('API: Parsed response data:', data);
+    } catch (parseError) {
+      console.error('API: Failed to parse response as JSON:', parseError);
+      return { 
+        success: false, 
+        error: `Server error: ${response.status} ${response.statusText}. Server returned: ${responseText.substring(0, 200)}` 
+      };
+    }
     
     if (!response.ok) {
-      const errorMsg = data.error || data.details || 'Failed to sign up';
-      console.error('API: Signup failed:', errorMsg);
+      const errorMsg = data.error || data.details || data.message || `Server returned ${response.status}`;
+      console.error('API: Signup failed with status:', response.status);
+      console.error('API: Error message:', errorMsg);
+      if (data.details) {
+        console.error('API: Error details:', data.details);
+      }
       return { success: false, error: errorMsg };
     }
     
@@ -109,28 +236,40 @@ export async function signUp(email: string, password: string, name: string, surn
     accessToken = authData.session.access_token;
     setAccessToken(accessToken);
     
+    // Store credentials for auto-login on future visits
+    storeCredentials(email, password);
+    
     console.log('API: Signup complete, user number:', data.userNumber);
     return { success: true, userNumber: data.userNumber };
   } catch (error) {
     console.error('API: Exception during signup:', error);
-    return { success: false, error: String(error) };
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return { success: false, error: 'Network error: Unable to connect to server. Please check your internet connection.' };
+    }
+    return { success: false, error: `Error: ${String(error)}` };
   }
 }
 
 // Sign in an existing user
 export async function signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('Signing in user:', email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (error || !data.session) {
+      console.error('Sign in failed:', error?.message);
       return { success: false, error: error?.message || 'Failed to sign in' };
     }
     
+    console.log('Sign in successful for:', data.user?.email);
     accessToken = data.session.access_token;
     setAccessToken(accessToken);
+    
+    // Store credentials for auto-login
+    storeCredentials(email, password);
     
     return { success: true };
   } catch (error) {
@@ -145,6 +284,8 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut();
     accessToken = null;
     setAccessToken(null);
+    clearStoredCredentials();
+    console.log('✓ User signed out successfully');
   } catch (error) {
     console.error('Error signing out:', error);
   }

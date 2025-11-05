@@ -57,10 +57,48 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   useEffect(() => {
     const fetchUserNumber = async () => {
       try {
+        // Test server connectivity first
+        console.log('Testing server connectivity...');
+        try {
+          // Import publicAnonKey for authentication
+          const { publicAnonKey } = await import('../utils/supabase/info');
+          
+          const healthResponse = await fetch(`https://${api.projectId}.supabase.co/functions/v1/make-server-fc010b9b/health`, {
+            headers: {
+              'Authorization': `Bearer ${publicAnonKey}`
+            }
+          });
+          console.log('Health check status:', healthResponse.status);
+          
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            console.log('Health check data:', healthData);
+            console.log('Server is responding normally');
+            
+            if (healthData.kvStoreWorking === false) {
+              console.error('KV Store is not working properly');
+            }
+            if (healthData.environmentVariables) {
+              console.log('Environment variables:', healthData.environmentVariables);
+            }
+          } else {
+            console.error('Health check returned non-OK status:', healthResponse.status);
+            const errorText = await healthResponse.text();
+            console.error('Health check error response:', errorText);
+          }
+        } catch (healthError) {
+          console.error('Health check failed:', healthError);
+          console.error('This may indicate the server is not deployed or not accessible');
+          // Continue anyway - we'll get a better error from the actual API call
+        }
+        
         const count = await api.getUserCount();
+        console.log('User count fetched successfully:', count);
         setNextUserNumber(count + 1); // Next user will be count + 1
       } catch (error) {
         console.error('Failed to fetch user count:', error);
+        console.error('Error type:', error instanceof TypeError ? 'TypeError' : typeof error);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
         setNextUserNumber(null);
       }
     };

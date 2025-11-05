@@ -10,20 +10,28 @@ const app = new Hono();
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-console.log('Server starting...');
-console.log('SUPABASE_URL:', SUPABASE_URL ? 'SET' : 'MISSING');
-console.log('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+console.log('=== SERVER STARTING ===');
+console.log('SUPABASE_URL:', SUPABASE_URL ? `SET (${SUPABASE_URL.substring(0, 30)}...)` : 'MISSING');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? `SET (length: ${SUPABASE_SERVICE_ROLE_KEY.length})` : 'MISSING');
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('ERROR: Missing required environment variables!');
-  throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  const errorMsg = 'Missing required environment variables: ' + 
+    (!SUPABASE_URL ? 'SUPABASE_URL ' : '') + 
+    (!SUPABASE_SERVICE_ROLE_KEY ? 'SUPABASE_SERVICE_ROLE_KEY' : '');
+  console.error('ERROR:', errorMsg);
+  throw new Error(errorMsg);
 }
+
+console.log('Environment variables confirmed, creating Supabase client...');
 
 // Initialize Supabase client with service role key for admin operations
 const supabaseAdmin = createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
 );
+
+console.log('Supabase client created successfully');
+console.log('=== SERVER INITIALIZATION COMPLETE ===');
 
 // Enable logger
 app.use('*', logger(console.log));
@@ -66,9 +74,52 @@ async function getUserIdFromAuth(authHeader: string | null): Promise<string | nu
   }
 }
 
+// Handle OPTIONS requests explicitly
+app.options("/make-server-fc010b9b/*", (c) => {
+  return c.text("", 204);
+});
+
 // Health check endpoint
-app.get("/make-server-fc010b9b/health", (c) => {
-  return c.json({ status: "ok" });
+app.get("/make-server-fc010b9b/health", async (c) => {
+  console.log('Health check endpoint called');
+  
+  // Test if we can access environment variables
+  const hasUrl = !!Deno.env.get('SUPABASE_URL');
+  const hasKey = !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  console.log('Environment check - URL:', hasUrl, 'KEY:', hasKey);
+  
+  // Test if KV store is accessible
+  let kvWorking = false;
+  try {
+    await kv.get('_health_check_test');
+    kvWorking = true;
+    console.log('KV store is accessible');
+  } catch (kvError) {
+    console.error('KV store error:', kvError);
+  }
+  
+  // If this endpoint responds, the server is running
+  return c.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    serverRunning: true,
+    environmentVariables: { hasUrl, hasKey },
+    kvStoreWorking: kvWorking
+  });
+});
+
+// Get total user count endpoint (public - no auth required beyond anon key)
+app.get("/make-server-fc010b9b/user-count", async (c) => {
+  try {
+    console.log('Server: Getting user count...');
+    const count = await kv.get('totalUserCount') || 0;
+    console.log('Server: Current user count:', count);
+    return c.json({ count });
+  } catch (error) {
+    console.error('Server: Error getting user count:', error);
+    return c.json({ error: 'Failed to get user count', details: error instanceof Error ? error.message : String(error) }, 500);
+  }
 });
 
 // Sign up endpoint - creates a new user account
@@ -86,16 +137,38 @@ app.post("/make-server-fc010b9b/signup", async (c) => {
       return c.json({ error: 'Email, password, and name are required' }, 400);
     }
     
+    console.log('Server: Validating supabaseAdmin client...');
+    if (!supabaseAdmin) {
+      console.error('Server: supabaseAdmin client is not initialized!');
+      return c.json({ error: 'Server configuration error - Supabase client not initialized' }, 500);
+    }
+    
     console.log('Server: Creating user with Supabase Auth...');
+    console.log('Server: Using auth endpoint:', supabaseAdmin.auth ? 'Available' : 'NOT AVAILABLE');
     
     // Create user with Supabase Auth
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      user_metadata: { name, surname },
-      // Automatically confirm the user's email since an email server hasn't been configured.
-      email_confirm: true
-    });
+    let data, error;
+    try {
+      const result = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        user_metadata: { name, surname },
+        // Automatically confirm the user's email since an email server hasn't been configured.
+        email_confirm: true
+      });
+      data = result.data;
+      error = result.error;
+      
+      console.log('Server: createUser call completed');
+      console.log('Server: Has data:', !!data);
+      console.log('Server: Has error:', !!error);
+    } catch (createUserException) {
+      console.error('Server: Exception during createUser:', createUserException);
+      return c.json({ 
+        error: 'Failed to create user', 
+        details: createUserException instanceof Error ? createUserException.message : String(createUserException)
+      }, 500);
+    }
     
     if (error) {
       console.error('Server: Supabase Auth error:', error);
@@ -564,17 +637,6 @@ app.put("/make-server-fc010b9b/user-profile", async (c) => {
   } catch (error) {
     console.error('Error updating user profile:', error);
     return c.json({ error: 'Failed to update user profile', details: String(error) }, 500);
-  }
-});
-
-// Get total user count (public endpoint)
-app.get("/make-server-fc010b9b/user-count", async (c) => {
-  try {
-    const userCount = await kv.get('totalUserCount') || 0;
-    return c.json({ count: userCount });
-  } catch (error) {
-    console.error('Error getting user count:', error);
-    return c.json({ error: 'Failed to get user count', details: String(error) }, 500);
   }
 });
 

@@ -180,15 +180,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log('=== APP CONTEXT: LOADING DATA ===');
+        
         // Initialize auth first
         const isAuthenticated = await api.initializeAuth();
+        console.log('AppContext: Authentication status:', isAuthenticated);
         
         if (!isAuthenticated) {
+          console.log('AppContext: User not authenticated, showing onboarding');
           // No auth session, user needs to go through onboarding
           setIsLoading(false);
           return;
         }
         
+        console.log('AppContext: User authenticated, loading app state...');
         // Try to load from Supabase
         const data = await api.fetchAppState();
         
@@ -225,9 +230,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Update lastLoginDate if user profile exists
         if (data.userProfile && data.userProfile.completedOnboarding) {
           data.userProfile.lastLoginDate = new Date();
+          console.log('AppContext: Loaded user profile for:', data.userProfile.name, data.userProfile.email);
+        } else {
+          console.log('AppContext: No user profile found or onboarding not completed');
         }
         
         dispatch({ type: 'LOAD_DATA', payload: data });
+        console.log('AppContext: App state loaded successfully');
       } catch (error) {
         console.error('Failed to load data from Supabase, trying localStorage:', error);
         
