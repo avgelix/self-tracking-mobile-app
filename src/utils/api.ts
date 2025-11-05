@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc010b9b`;
 
+console.log('API initialized with base URL:', API_BASE);
+
 // Create Supabase client for auth operations
 const supabase = createClient(
   `https://${projectId}.supabase.co`,
@@ -63,6 +65,8 @@ export async function initializeAuth(): Promise<boolean> {
 // Sign up a new user
 export async function signUp(email: string, password: string, name: string, surname?: string): Promise<{ success: boolean; userNumber?: number; error?: string }> {
   try {
+    console.log('API: Calling signup endpoint with email:', email);
+    
     const response = await fetch(`${API_BASE}/signup`, {
       method: 'POST',
       headers: {
@@ -71,11 +75,18 @@ export async function signUp(email: string, password: string, name: string, surn
       body: JSON.stringify({ email, password, name, surname }),
     });
 
+    console.log('API: Signup response status:', response.status);
+    
     const data = await response.json();
+    console.log('API: Signup response data:', data);
     
     if (!response.ok) {
-      return { success: false, error: data.error || 'Failed to sign up' };
+      const errorMsg = data.error || data.details || 'Failed to sign up';
+      console.error('API: Signup failed:', errorMsg);
+      return { success: false, error: errorMsg };
     }
+    
+    console.log('API: Account created, now signing in...');
     
     // Now sign in to get the access token
     const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -83,16 +94,25 @@ export async function signUp(email: string, password: string, name: string, surn
       password,
     });
     
-    if (signInError || !authData.session) {
-      return { success: false, error: 'Account created but failed to sign in. Please try signing in manually.' };
+    if (signInError) {
+      console.error('API: Sign in error after signup:', signInError);
+      return { success: false, error: `Account created but failed to sign in: ${signInError.message}` };
     }
+    
+    if (!authData.session) {
+      console.error('API: No session returned after sign in');
+      return { success: false, error: 'Account created but no session created. Please try signing in manually.' };
+    }
+    
+    console.log('API: Sign in successful, setting access token');
     
     accessToken = authData.session.access_token;
     setAccessToken(accessToken);
     
+    console.log('API: Signup complete, user number:', data.userNumber);
     return { success: true, userNumber: data.userNumber };
   } catch (error) {
-    console.error('Error signing up:', error);
+    console.error('API: Exception during signup:', error);
     return { success: false, error: String(error) };
   }
 }

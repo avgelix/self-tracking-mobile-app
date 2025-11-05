@@ -6,10 +6,23 @@ import * as kv from "./kv_store.tsx";
 
 const app = new Hono();
 
+// Check environment variables
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+console.log('Server starting...');
+console.log('SUPABASE_URL:', SUPABASE_URL ? 'SET' : 'MISSING');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('ERROR: Missing required environment variables!');
+  throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+}
+
 // Initialize Supabase client with service role key for admin operations
 const supabaseAdmin = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
 );
 
 // Enable logger
@@ -61,11 +74,19 @@ app.get("/make-server-fc010b9b/health", (c) => {
 // Sign up endpoint - creates a new user account
 app.post("/make-server-fc010b9b/signup", async (c) => {
   try {
-    const { email, password, name, surname } = await c.req.json();
+    console.log('Server: Signup endpoint called');
+    
+    const body = await c.req.json();
+    const { email, password, name, surname } = body;
+    
+    console.log('Server: Signup request for email:', email, 'name:', name);
     
     if (!email || !password || !name) {
+      console.error('Server: Missing required fields');
       return c.json({ error: 'Email, password, and name are required' }, 400);
     }
+    
+    console.log('Server: Creating user with Supabase Auth...');
     
     // Create user with Supabase Auth
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -77,16 +98,28 @@ app.post("/make-server-fc010b9b/signup", async (c) => {
     });
     
     if (error) {
-      console.error('Signup error:', error);
+      console.error('Server: Supabase Auth error:', error);
       return c.json({ error: 'Failed to create user account', details: error.message }, 400);
     }
     
+    if (!data.user) {
+      console.error('Server: No user returned from Supabase');
+      return c.json({ error: 'Failed to create user account', details: 'No user data returned' }, 400);
+    }
+    
+    console.log('Server: User created successfully:', data.user.id);
+    
     // Get the current total user count
+    console.log('Server: Getting user count...');
     const userCount = await kv.get('totalUserCount') || 0;
     const newUserNumber = userCount + 1;
     
+    console.log('Server: Current user count:', userCount, 'New user number:', newUserNumber);
+    
     // Update the total user count
     await kv.set('totalUserCount', newUserNumber);
+    
+    console.log('Server: Signup complete, returning success');
     
     return c.json({ 
       success: true, 
@@ -94,7 +127,7 @@ app.post("/make-server-fc010b9b/signup", async (c) => {
       userNumber: newUserNumber
     });
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Server: Signup exception:', error);
     return c.json({ error: 'Failed to create account', details: String(error) }, 500);
   }
 });

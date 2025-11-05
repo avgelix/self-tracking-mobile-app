@@ -121,6 +121,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       // Generate a password from email (simplified - in production would be more secure)
       const password = `${formData.email.split('@')[0]}${Date.now()}`;
       
+      console.log('Starting signup process for:', formData.email);
+      
       // Sign up the user
       const signupResult = await api.signUp(
         formData.email,
@@ -129,12 +131,15 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         formData.surname
       );
       
+      console.log('Signup result:', signupResult);
+      
       if (!signupResult.success) {
         console.error('Signup failed:', signupResult.error);
-        // If account already exists, try to sign in
-        // This handles the case where onboarding was interrupted
+        setErrors({ ...errors, signup: signupResult.error || 'Failed to sign up. Please try again.' });
         return;
       }
+      
+      console.log('Signup successful, proceeding with profile creation');
       
       // Wait a moment for token to be fully set
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -208,6 +213,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <p className="text-sm text-red-500">{errors.email}</p>
           )}
         </div>
+        
+        {errors.signup && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-sm text-white">{errors.signup}</p>
+          </div>
+        )}
       </div>
     </motion.div>
   );
